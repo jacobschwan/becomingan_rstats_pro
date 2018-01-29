@@ -1,0 +1,159 @@
+---
+title: Hello World
+author: Jacob Schwan
+date: '2018-01-28'
+slug: hello-world
+categories: ["R", "Maps"]
+tags: ["ggplot2", "countrycode"]
+banner: "banners/hello_world.png"
+---
+
+
+
+<p>Hello world! I’m starting off 2018 by finally getting a data science blog up and running!</p>
+<p>Since this is a “Hello World” post, let’s create a map of the world in R. I’m watching <a href="http://www.imdb.com/title/tt0200276/?ref_=tt_ov_inf">The West Wing</a> while writing this, so let’s see if we can create the map from this <a href="http://www.imdb.com/title/tt0745679/?ref_=ttep_ep16">classic episode</a>.</p>
+<!--more-->
+<p>{{<youtube QMlp8BeBJgg>}}</p>
+<div id="basic-world-map" class="section level2">
+<h2>Basic World Map</h2>
+<p>We’ll start by creating a basic map of the countries of the world using <code>ggplot2</code>. This <a href="https://eriqande.github.io/rep-res-web/lectures/making-maps-with-R.html">guide</a> provided a nice primer to the steps required. We’ll use the <code>map_data()</code> function to produce a data frame suitable to feed in to <code>ggplot()</code>.</p>
+<pre class="r"><code>library(tidyverse)</code></pre>
+<pre><code>## Loading tidyverse: ggplot2
+## Loading tidyverse: tibble
+## Loading tidyverse: tidyr
+## Loading tidyverse: readr
+## Loading tidyverse: purrr
+## Loading tidyverse: dplyr</code></pre>
+<pre><code>## Conflicts with tidy packages ----------------------------------------------</code></pre>
+<pre><code>## filter(): dplyr, stats
+## lag():    dplyr, stats</code></pre>
+<pre class="r"><code>world_data &lt;- map_data(&quot;world&quot;)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;maps&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:purrr&#39;:
+## 
+##     map</code></pre>
+<pre class="r"><code>world_data %&gt;%
+  ggplot(aes(long, lat, group = group)) +
+  geom_polygon(fill = &quot;white&quot;, color = &quot;gray&quot;) -&gt; base_map
+
+base_map</code></pre>
+<p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<p>In the West Wing episode, the Cartogrophers for Social Equality advocate for use of the Peter’s projection. We use <code>coord_map()</code> to apply specific map projections available to the <code>mapproject()</code> function. Unfortunately Peter’s doesn’t appear in this list. A Google search revealed that this projection is more commonly referred to as the <a href="https://en.wikipedia.org/wiki/Gall%E2%80%93Peters_projection">Gall-Peters projection</a>. I got excited when I saw <code>mapproject()</code> has <code>&quot;gall&quot;</code> as one of the available projection. However, this didn’t look right..</p>
+<pre class="r"><code>base_map + 
+  coord_map(&quot;gall&quot;, lat0 = 15)</code></pre>
+<p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>After diving in to a deeper read of the Wikipedia article and reading the <a href="https://www.rdocumentation.org/packages/mapproj/versions/1.2-4/topics/mapproject"><code>mapproject()</code></a> documentation more carefully revealed that the <code>&quot;gall&quot;</code> refers to one of <a href="https://en.wikipedia.org/wiki/Gall_stereographic_projection">Gall’s other projections</a>. The <code>mapproject()</code> documention indicates that <code>&quot;gall&quot;</code> is a stereographic projection, but Gall-Peters is a cylindric equal-area projection with the standard paralles at 45°. Therefore, we’ll use the <code>&quot;cylequalarea&quot;</code> projection and set <code>lat0 = 45</code></p>
+<pre class="r"><code>base_map +
+  coord_map(&quot;cylequalarea&quot;, lat0 = 45)</code></pre>
+<p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>This is looking better, however we seem to have some rendering issues causing lines through Russia and Canada. More Googling brought me to <a href="http://cameron.bracken.bz/finally-an-easy-way-to-fix-the-horizontal-lines-in-ggplot2-maps">this blog post</a> indicating that it’s a long standing <a href="https://github.com/tidyverse/ggplot2/issues/169">ggplot2 issue</a>. Reading the issue comments indicates that setting an <code>xlim</code> in the <code>coord_map()</code> is a quick and dirty fix.</p>
+<pre class="r"><code>base_map +
+  coord_map(&quot;cylequalarea&quot;, lat0 = 45, xlim = c(-180, 180))</code></pre>
+<p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>That worked pretty well.</p>
+</div>
+<div id="coloring" class="section level2">
+<h2>Coloring</h2>
+<p>The map in West Wing episode is color coded in a very unique way. It’s sort of by continent, but the USA, Canada, Mexico, China, and India are carved out for some reason. The <code>map_data()</code> function provides country names as the <code>region</code> variable. We should be able to translate the country names to contients and then customize from there.</p>
+<p>While searching for a data set that might provide these translations, I ran across the <a href="https://cran.r-project.org/web/packages/countrycode/index.html">countrycode</a> package. This package has a function to convert country names and codings.</p>
+<pre class="r"><code>library(countrycode)
+world_data %&gt;%
+  mutate(custom_group = countrycode(region, &quot;country.name&quot;, &quot;continent&quot;)) -&gt; world_data_group
+
+world_data_group %&gt;%
+  ggplot(aes(long, lat, group = group, fill = custom_group)) +
+  geom_polygon(color = &quot;gray&quot;) + 
+  coord_map(&quot;cylequalarea&quot;, lat0 = 45, xlim = c(-180, 180))</code></pre>
+<p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-5-1.png" width="672" /></p>
+<p>This looks like we’ll have to do too much manual dividing to get our custom groupings. The map in West Wing appears to separate out Southeast Asia and I don’t want to have to lookup every country in that group. The <code>&quot;region&quot;</code> coding schemes in <code>countrycode()</code> groups by the World Bank Development Indicators and ends up as a better starting point.</p>
+<pre class="r"><code>world_data %&gt;%
+  mutate(custom_group = countrycode(region, &quot;country.name&quot;, &quot;region&quot;)) -&gt; world_data_group
+
+world_data_group %&gt;%
+  ggplot(aes(long, lat, group = group, fill = custom_group)) +
+  geom_polygon(color = &quot;gray&quot;) + 
+  coord_map(&quot;cylequalarea&quot;, lat0 = 45, xlim = c(-180, 180))</code></pre>
+<p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>This is more divided than we need, but we can use some <code>grepl()</code> magic to combine the African and Southeast regions the way we want them. We’ll also pass along the country name for those that are singled out in our West Wing map.</p>
+<pre class="r"><code>world_data %&gt;%
+  mutate(custom_group = countrycode(region, &quot;country.name&quot;, &quot;region&quot;)) %&gt;%
+  mutate(custom_group = case_when(region == &quot;USA&quot; ~ region,
+                                  region == &quot;Mexico&quot; ~ region,
+                                  region == &quot;Russia&quot; ~ &quot;Asia&quot;,
+                                  region == &quot;Canada&quot; ~ region,
+                                  region == &quot;Saudi Arabia&quot; ~ region,
+                                  region == &quot;China&quot; ~ &quot;SE_Asia&quot;,
+                                  region == &quot;India&quot; ~ region,
+                                  custom_group == &quot;Australia and New Zealand&quot; ~ &quot;Austraila&quot;,
+                                  custom_group %in% c(&quot;Caribbean&quot;,
+                                                      &quot;Central America&quot;) ~ &quot;South America&quot;,
+                                  custom_group %in% c(&quot;Southern Asia&quot;,
+                                                      &quot;Central Asia&quot;, 
+                                                      &quot;Western Asia&quot;) ~ &quot;Asia&quot;,
+                                  grepl(&quot;Asia&quot;, custom_group) | custom_group == &quot;Melanesia&quot; ~ &quot;SE_Asia&quot;,
+                                  grepl(&quot;Africa&quot;, custom_group) | custom_group == &quot;Micronesia&quot; ~ &quot;Africa&quot;,
+                                  grepl(&quot;Europe&quot;, custom_group) ~ &quot;Europe&quot;,
+                                  TRUE ~ custom_group)) -&gt; world_data_group
+
+world_data_group %&gt;%
+  ggplot(aes(long, lat, group = group, fill = custom_group)) +
+  geom_polygon(color = &quot;gray&quot;) + 
+  coord_map(&quot;cylequalarea&quot;, lat0 = 45, xlim = c(-180, 180))</code></pre>
+<p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+</div>
+<div id="labels" class="section level1">
+<h1>Labels</h1>
+<p>Now let’s add the labels similar to those in our episode’s map. We’ll need to find the middle of each group to be able to place our labels nicely. I’m sure there are more accurate geospatial methods, but for this purpose I’ll just take the mean of all the longitude and latitude points.</p>
+<pre class="r"><code>world_labels &lt;- world_data_group %&gt;%
+  group_by(custom_group) %&gt;%
+  summarise(long = mean(long), lat = mean(lat), group = group[1])
+
+world_data_group %&gt;%
+  ggplot(aes(long, lat, group = group, fill = custom_group)) +
+  geom_polygon(color = &quot;gray&quot;, alpha = .5) + 
+  coord_map(&quot;cylequalarea&quot;, lat0 = 45, xlim = c(-180, 180)) +
+  geom_text(data = world_labels, aes(label = custom_group)) +
+  guides(fill = FALSE)</code></pre>
+<p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>This is pretty good, but we’ve got more data labels than we need. The episode map also labels Asia in the middle of Russia and labels China instead of Southeast Asia. We’ll add a <code>custom_label</code> variable to make these adjustments. We’ll also do some manual adjustments to better position the USA and Canada labels.</p>
+<pre class="r"><code>world_labels &lt;- world_data_group %&gt;%
+  mutate(custom_label = case_when(region == &quot;Russia&quot; ~ &quot;Asia&quot;,
+                                  region == &quot;China&quot; ~ &quot;China&quot;,
+                                  custom_group %in% c(&quot;SE_Asia&quot;, &quot;Asia&quot;, &quot;Saudi Arabia&quot;, &quot;Polynesia&quot;,
+                                                      &quot;Northern America&quot;) ~ &quot;&quot;,
+                                  TRUE ~ custom_group)) %&gt;%
+  filter(custom_label != &quot;&quot;) %&gt;%
+  group_by(custom_label) %&gt;%
+  summarise(long = mean(long), lat = mean(lat), group = group[1], custom_group = custom_group[1]) %&gt;%
+  mutate(long = ifelse(custom_label == &quot;USA&quot;, long + 20, long),
+         lat = ifelse(custom_label == &quot;USA&quot;, lat - 10, lat)) %&gt;%
+  mutate(long = ifelse(custom_label == &quot;Canada&quot;, long - 20, long),
+         lat = ifelse(custom_label == &quot;Canada&quot;, lat - 10, lat))
+  
+
+world_data_group %&gt;%
+  ggplot(aes(long, lat, group = group, fill = custom_group)) +
+  geom_polygon(color = &quot;gray&quot;, alpha = .5) + 
+  coord_map(&quot;cylequalarea&quot;, lat0 = 45, xlim = c(-180, 180)) +
+  geom_text(data = world_labels, aes(label = custom_label)) +
+  guides(fill = FALSE)</code></pre>
+<p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-9-1.png" width="672" /></p>
+<p>Finally, let’s turn the world upside down!</p>
+<pre class="r"><code>world_data_group %&gt;%
+  ggplot(aes(-long, -lat, group = group, fill = custom_group)) +
+  geom_polygon(color = &quot;gray&quot;, alpha = .5) + 
+  coord_map(&quot;cylequalarea&quot;, lat0 = 45, xlim = c(-180, 180)) +
+  geom_text(data = world_labels, aes(label = custom_label)) +
+  guides(fill = FALSE) +
+  labs(title = &quot;Reverse Pole Peters Projection Map&quot;,
+       x = NULL,
+       y = NULL) + 
+  theme_bw()</code></pre>
+<p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
+<div id="what-i-learned" class="section level2">
+<h2>What I Learned</h2>
+<p>While trying to build this map I learned how to create a basic map using <code>ggplot2</code> and how to work around rendering issues by setting the <code>xlim</code> parameter. I discovered the <code>countrycode</code> package, which should come in handy in the future. And, I had to learn more than I thought I would need to about map projections.</p>
+<p>Questions, critiques, and feedback are welcome in the comments section below. My thanks in advance to anyone that takes the time to leave one.</p>
+</div>
+</div>
