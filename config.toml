@@ -1,4 +1,4 @@
-baseurl = "/"
+baseurl = "https://becomingan.rstats.pro/"
 languageCode = "en-us"
 title = "Becoming An R Stats Pro"
 # Enable comments by entering your Disqus shortname
@@ -36,6 +36,7 @@ ignoreFiles = ["\\.Rmd$", "\\.Rmarkdown$", "_files$", "_cache$"]
 
     # Format dates with Go's time formatting
     date_format = "2006-01-02"
+    
 
     # Add custom assets with their paths relative to the static folder
 	custom_css = []

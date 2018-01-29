@@ -17,23 +17,10 @@ banner: "banners/hello_world.png"
 <div id="basic-world-map" class="section level2">
 <h2>Basic World Map</h2>
 <p>We’ll start by creating a basic map of the countries of the world using <code>ggplot2</code>. This <a href="https://eriqande.github.io/rep-res-web/lectures/making-maps-with-R.html">guide</a> provided a nice primer to the steps required. We’ll use the <code>map_data()</code> function to produce a data frame suitable to feed in to <code>ggplot()</code>.</p>
-<pre class="r"><code>library(tidyverse)</code></pre>
-<pre><code>## Loading tidyverse: ggplot2
-## Loading tidyverse: tibble
-## Loading tidyverse: tidyr
-## Loading tidyverse: readr
-## Loading tidyverse: purrr
-## Loading tidyverse: dplyr</code></pre>
-<pre><code>## Conflicts with tidy packages ----------------------------------------------</code></pre>
-<pre><code>## filter(): dplyr, stats
-## lag():    dplyr, stats</code></pre>
-<pre class="r"><code>world_data &lt;- map_data(&quot;world&quot;)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;maps&#39;</code></pre>
-<pre><code>## The following object is masked from &#39;package:purrr&#39;:
-## 
-##     map</code></pre>
-<pre class="r"><code>world_data %&gt;%
+<pre class="r"><code>library(tidyverse)
+world_data &lt;- map_data(&quot;world&quot;)
+
+world_data %&gt;%
   ggplot(aes(long, lat, group = group)) +
   geom_polygon(fill = &quot;white&quot;, color = &quot;gray&quot;) -&gt; base_map
 

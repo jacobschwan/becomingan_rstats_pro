@@ -20,7 +20,7 @@ Since this is a "Hello World" post, let's create a map of the world in R. I'm wa
 
 We'll start by creating a basic map of the countries of the world using `ggplot2`.  This [guide](https://eriqande.github.io/rep-res-web/lectures/making-maps-with-R.html) provided a nice primer to the steps required. We'll use the  `map_data()` function to produce a data frame suitable to feed in to `ggplot()`.
 
-```{r}
+```{r, message = FALSE}
 library(tidyverse)
 world_data <- map_data("world")
 
