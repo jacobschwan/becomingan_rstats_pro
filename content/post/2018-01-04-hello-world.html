@@ -63,7 +63,7 @@ world_data_group %&gt;%
   coord_map(&quot;cylequalarea&quot;, lat0 = 45, xlim = c(-180, 180))</code></pre>
 <p><img src="/post/2018-01-04-hello-world_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
 <p>This is more divided than we need, but we can use some <code>grepl()</code> magic to combine the African and Southeast regions the way we want them. We’ll also pass along the country name for those that are singled out in our West Wing map.</p>
-<pre class="r"><code>world_data %&gt;%
+<pre class="r"><code>world_data_group &lt;- world_data %&gt;%
   mutate(custom_group = countrycode(region, &quot;country.name&quot;, &quot;region&quot;)) %&gt;%
   mutate(custom_group = case_when(region == &quot;USA&quot; ~ region,
                                   region == &quot;Mexico&quot; ~ region,
@@ -81,7 +81,7 @@ world_data_group %&gt;%
                                   grepl(&quot;Asia&quot;, custom_group) | custom_group == &quot;Melanesia&quot; ~ &quot;SE_Asia&quot;,
                                   grepl(&quot;Africa&quot;, custom_group) | custom_group == &quot;Micronesia&quot; ~ &quot;Africa&quot;,
                                   grepl(&quot;Europe&quot;, custom_group) ~ &quot;Europe&quot;,
-                                  TRUE ~ custom_group)) -&gt; world_data_group
+                                  TRUE ~ custom_group))
 
 world_data_group %&gt;%
   ggplot(aes(long, lat, group = group, fill = custom_group)) +

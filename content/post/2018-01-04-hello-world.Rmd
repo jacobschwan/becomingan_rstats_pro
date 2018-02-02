@@ -87,7 +87,7 @@ world_data_group %>%
 This is more divided than we need, but we can use some `grepl()` magic to combine the African and Southeast regions the way we want them.  We'll also pass along the country name for those that are singled out in our West Wing map.
 
 ```{r, warning = FALSE}
-world_data %>%
+world_data_group <- world_data %>%
   mutate(custom_group = countrycode(region, "country.name", "region")) %>%
   mutate(custom_group = case_when(region == "USA" ~ region,
                                   region == "Mexico" ~ region,
@@ -105,7 +105,7 @@ world_data %>%
                                   grepl("Asia", custom_group) | custom_group == "Melanesia" ~ "SE_Asia",
                                   grepl("Africa", custom_group) | custom_group == "Micronesia" ~ "Africa",
                                   grepl("Europe", custom_group) ~ "Europe",
-                                  TRUE ~ custom_group)) -> world_data_group
+                                  TRUE ~ custom_group))
 
 world_data_group %>%
   ggplot(aes(long, lat, group = group, fill = custom_group)) +
