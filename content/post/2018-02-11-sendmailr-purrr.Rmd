@@ -1,23 +1,21 @@
 ---
-title: Emailing Multiple Files with SendmailR and Purrr
+title: Emailing Files with SendmailR and Purrr
 author: Jacob Schwan
-date: '2018-02-11'
+date: '2018-02-12'
 slug: sendmailr-purrr
 categories: ["R"]
 tags: ["sendmailr","purrr"]
-banner: ""
-draft: true
+banner: "banners/sendmailR_purrr.png"
+images: [banners/sendmailR_purrr.png]
 ---
 
-I use R in my day job to generate and send out regular reports. The [sendmailR]() package has been great to automatically email an output file.  However, it becomes increasingly annoying to attach multiple files to an email. Each file is defined as a separate `mime_part()` object with a file name and path, then added to a list with
-
-Or, at least it was, before I started using the `purrr` package.  
+I use R in my day job to generate and send out regular reports. The [`sendmailR`](https://cran.r-project.org/web/packages/sendmailR/index.html) package has been great to automatically email an output file. However, it becomes increasingly annoying to attach multiple files to an email. Or, at least, it was before I started learning the [`purrr`](http://purrr.tidyverse.org/) package.
 
 <!--more-->
 
 ## TL;DR
 
-Here's the code template I use to send an email will all of the files in a specific folder.
+Here's the code template I use to attach all of the files in a specific folder to an email.
 
 ```{r, eval = FALSE}
 library(sendmailR)
@@ -44,10 +42,96 @@ sendmail(from = email_from,
          control = list(smtpServer = ""))
 ```
 
-## Motivation and Explanation
+## Motivation
 
- 
+As I mentioned above, attaching more than one document with `sendmailR` can become very tedious. Each file is defined as a separate `mime_part()` object with a filename and path, then added to a list along with the message body.  So my typical block of code at the end of a script would look like this:
 
+```{r, eval = F}
+library(sendmailR)
 
+#Build Email
+email_from <- "<myemail@mycompany.com>"
+email_to <- c("<recipient1@mycompany.com>", "<recipient2@mycompany.com>")
+email_subject <- paste0("Some report as of", Sys.Date())
+email_body <- paste0("Hello recipeints,\n\nAttached are the reports you need as of ", Sys.Date(), ".\n\nRegards,\nJacob Schwan")
+attachment1 <- mime_part(x = paste0(folder, file_name1), name = file_name1)
+attachment2 <- mime_part(x = paste0(folder, file_name2), name = file_name2)
+attachment3 <- mime_part(x = paste0(folder, file_name3), name = file_name3)
+attachment4 <- mime_part(x = paste0(folder, file_name4), name = file_name4)
 
-The `mime_part()` funtion is used create an email attachment object, which is then included 
+sendmail(from = email_from, to = email_to, bcc = email_from, subject = email_subject, 
+         msg = list(email_body, attachment1, attachment2, attachment3, attachment4),
+         control = list(smtpServer = "smtp.mycompany.com"))
+```
+
+This works okay, but it's a lot of typing to define each attachment and makes it really easy to forget to build the `mime_part()` for a file or to add it to the `msg = list()` in the `sendmail()` function.  I would much prefer to just have the email send everything in a designated output folder. Then one day it clicked.  I want to dynamically make a list based on some input...that sounds like a job for the `purrr::map()` function!
+
+## Building a Solution
+
+I had read some introductions and tutorials on using `purrr` and the `map()` functions, and was already using `purrr::map_df(list.files(folder_name, pattern = "csv$", full.names = T), read_csv)` to read a whole folder of similar CSV files into a single data frame. So, one day I decided to take some time and figure out how to adapt this to email attachments. 
+
+Reading the [`purrr`](http://purrr.tidyverse.org/) documentation made it pretty clear that `map2()` was the function I needed to work with.  It took some trial and error to figure out the best approach to building the input for the function.  I finally settled on building a data frame with the necessary file names and full paths.
+
+```{r, eval = F}
+output_files <- data.frame(filename = list.files(folder_name),
+                           file_path = list.files(folder_name, full.names = T),
+                           stringsAsFactors = F)
+```
+
+Then running the following `map2()` function would give me a nice list of `mime_part` objects.
+
+```{r, eval = F}
+email_attachments <- purrr::map2(output_files$file_path,
+                                 output_files$filename,
+                                 mime_part)
+```
+
+The hardest piece to figure out, surprisingly, was how to correctly combine this list with the body of my email in the `msg` argument of the `sendmail()` function.  I had originally thought that just using the `list()` function should work. But as you can see in this example, this creates a nested list which the `msg` argument can't handle.
+
+```{r}
+email_attachments <- list("Attachment1", "Attachement2", "Attachment3")
+email_body <- "Body of email"
+
+list(email_body, email_attachments)
+```
+
+After some frustrating time trying to Google a solution, I finally stumbled into it.  And it was surprisingly simple!
+
+```{r}
+c(email_body, email_attachments)
+```
+
+I was initially surpised when this worked, as I had always thought that `c()` was just for building vectors.  Turns out that the documentation for [`c()`]() states very clearly (in big bold letters at the top) that it can combine values into a vector *or list*.  Wish I had been told that years ago!
+
+So now my standard email template looks like this:
+
+```{r, eval = FALSE}
+library(sendmailR)
+folder_name <- ""
+email_from <- "<>"
+email_to <- c("<>", "<>")
+email_bcc <- "<>"
+email_subject <- ""
+email_body <- ""
+
+output_files <- data.frame(filename = list.files(folder_name),
+                           file_path = list.files(folder_name, full.names = T),
+                           stringsAsFactors = F)
+
+email_attachments <- purrr::map2(output_files$file_path,
+                                 output_files$filename,
+                                 mime_part)
+
+sendmail(from = email_from,
+         to = email_to,
+         bcc = email_bcc,
+         subject = email_subject,
+         msg = c(email_body, email_attachments),
+         control = list(smtpServer = ""))
+```
+
+## What I Learned
+
+Working though this problem really gave me some practice using lists.  Lists are one of my R weaknesses.  I don't feel like I've fully internalized when to use them and how to use them effectively.  Just learning to combine them with `c()` feels like a big win for me.
+
+Questions, critiques, and feedback are welcome in the comments section below. My thanks in advance to anyone that takes the time to leave one.

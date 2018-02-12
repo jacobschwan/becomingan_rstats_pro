@@ -1,22 +1,21 @@
 ---
-title: Emailing Multiple Files with SendmailR and Purrr
+title: Emailing Files with SendmailR and Purrr
 author: Jacob Schwan
-date: '2018-02-11'
+date: '2018-02-12'
 slug: sendmailr-purrr
 categories: ["R"]
 tags: ["sendmailr","purrr"]
-banner: ""
-draft: true
+banner: "banners/sendmailR_purrr.png"
+images: [banners/sendmailR_purrr.png]
 ---
 
 
 
-<p>I use R in my day job to generate and send out regular reports. The <a href="">sendmailR</a> package has been great to automatically email an output file. However, it becomes increasingly annoying to attach multiple files to an email. Each file is defined as a separate <code>mime_part()</code> object with a file name and path, then added to a list with</p>
-<p>Or, at least it was, before I started using the <code>purrr</code> package.</p>
+<p>I use R in my day job to generate and send out regular reports. The <a href="https://cran.r-project.org/web/packages/sendmailR/index.html"><code>sendmailR</code></a> package has been great to automatically email an output file. However, it becomes increasingly annoying to attach multiple files to an email. Or, at least, it was before I started learning the <a href="http://purrr.tidyverse.org/"><code>purrr</code></a> package.</p>
 <!--more-->
 <div id="tldr" class="section level2">
 <h2>TL;DR</h2>
-<p>Here’s the code template I use to send an email will all of the files in a specific folder.</p>
+<p>Here’s the code template I use to attach all of the files in a specific folder to an email.</p>
 <pre class="r"><code>library(sendmailR)
 folder_name &lt;- &quot;&quot;
 email_from &lt;- &quot;&lt;&gt;&quot;
@@ -40,7 +39,94 @@ sendmail(from = email_from,
          msg = c(email_body, email_attachments),
          control = list(smtpServer = &quot;&quot;))</code></pre>
 </div>
-<div id="motivation-and-explanation" class="section level2">
-<h2>Motivation and Explanation</h2>
-<p>The <code>mime_part()</code> funtion is used create an email attachment object, which is then included</p>
+<div id="motivation" class="section level2">
+<h2>Motivation</h2>
+<p>As I mentioned above, attaching more than one document with <code>sendmailR</code> can become very tedious. Each file is defined as a separate <code>mime_part()</code> object with a filename and path, then added to a list along with the message body. So my typical block of code at the end of a script would look like this:</p>
+<pre class="r"><code>library(sendmailR)
+
+#Build Email
+email_from &lt;- &quot;&lt;myemail@mycompany.com&gt;&quot;
+email_to &lt;- c(&quot;&lt;recipient1@mycompany.com&gt;&quot;, &quot;&lt;recipient2@mycompany.com&gt;&quot;)
+email_subject &lt;- paste0(&quot;Some report as of&quot;, Sys.Date())
+email_body &lt;- paste0(&quot;Hello recipeints,\n\nAttached are the reports you need as of &quot;, Sys.Date(), &quot;.\n\nRegards,\nJacob Schwan&quot;)
+attachment1 &lt;- mime_part(x = paste0(folder, file_name1), name = file_name1)
+attachment2 &lt;- mime_part(x = paste0(folder, file_name2), name = file_name2)
+attachment3 &lt;- mime_part(x = paste0(folder, file_name3), name = file_name3)
+attachment4 &lt;- mime_part(x = paste0(folder, file_name4), name = file_name4)
+
+sendmail(from = email_from, to = email_to, bcc = email_from, subject = email_subject, 
+         msg = list(email_body, attachment1, attachment2, attachment3, attachment4),
+         control = list(smtpServer = &quot;smtp.mycompany.com&quot;))</code></pre>
+<p>This works okay, but it’s a lot of typing to define each attachment and makes it really easy to forget to build the <code>mime_part()</code> for a file or to add it to the <code>msg = list()</code> in the <code>sendmail()</code> function. I would much prefer to just have the email send everything in a designated output folder. Then one day it clicked. I want to dynamically make a list based on some input…that sounds like a job for the <code>purrr::map()</code> function!</p>
+</div>
+<div id="building-a-solution" class="section level2">
+<h2>Building a Solution</h2>
+<p>I had read some introductions and tutorials on using <code>purrr</code> and the <code>map()</code> functions, and was already using <code>purrr::map_df(list.files(folder_name, pattern = &quot;csv$&quot;, full.names = T), read_csv)</code> to read a whole folder of similar CSV files into a single data frame. So, one day I decided to take some time and figure out how to adapt this to email attachments.</p>
+<p>Reading the <a href="http://purrr.tidyverse.org/"><code>purrr</code></a> documentation made it pretty clear that <code>map2()</code> was the function I needed to work with. It took some trial and error to figure out the best approach to building the input for the function. I finally settled on building a data frame with the necessary file names and full paths.</p>
+<pre class="r"><code>output_files &lt;- data.frame(filename = list.files(folder_name),
+                           file_path = list.files(folder_name, full.names = T),
+                           stringsAsFactors = F)</code></pre>
+<p>Then running the following <code>map2()</code> function would give me a nice list of <code>mime_part</code> objects.</p>
+<pre class="r"><code>email_attachments &lt;- purrr::map2(output_files$file_path,
+                                 output_files$filename,
+                                 mime_part)</code></pre>
+<p>The hardest piece to figure out, surprisingly, was how to correctly combine this list with the body of my email in the <code>msg</code> argument of the <code>sendmail()</code> function. I had originally thought that just using the <code>list()</code> function should work. But as you can see in this example, this creates a nested list which the <code>msg</code> argument can’t handle.</p>
+<pre class="r"><code>email_attachments &lt;- list(&quot;Attachment1&quot;, &quot;Attachement2&quot;, &quot;Attachment3&quot;)
+email_body &lt;- &quot;Body of email&quot;
+
+list(email_body, email_attachments)</code></pre>
+<pre><code>## [[1]]
+## [1] &quot;Body of email&quot;
+## 
+## [[2]]
+## [[2]][[1]]
+## [1] &quot;Attachment1&quot;
+## 
+## [[2]][[2]]
+## [1] &quot;Attachement2&quot;
+## 
+## [[2]][[3]]
+## [1] &quot;Attachment3&quot;</code></pre>
+<p>After some frustrating time trying to Google a solution, I finally stumbled into it. And it was surprisingly simple!</p>
+<pre class="r"><code>c(email_body, email_attachments)</code></pre>
+<pre><code>## [[1]]
+## [1] &quot;Body of email&quot;
+## 
+## [[2]]
+## [1] &quot;Attachment1&quot;
+## 
+## [[3]]
+## [1] &quot;Attachement2&quot;
+## 
+## [[4]]
+## [1] &quot;Attachment3&quot;</code></pre>
+<p>I was initially surpised when this worked, as I had always thought that <code>c()</code> was just for building vectors. Turns out that the documentation for <a href=""><code>c()</code></a> states very clearly (in big bold letters at the top) that it can combine values into a vector <em>or list</em>. Wish I had been told that years ago!</p>
+<p>So now my standard email template looks like this:</p>
+<pre class="r"><code>library(sendmailR)
+folder_name &lt;- &quot;&quot;
+email_from &lt;- &quot;&lt;&gt;&quot;
+email_to &lt;- c(&quot;&lt;&gt;&quot;, &quot;&lt;&gt;&quot;)
+email_bcc &lt;- &quot;&lt;&gt;&quot;
+email_subject &lt;- &quot;&quot;
+email_body &lt;- &quot;&quot;
+
+output_files &lt;- data.frame(filename = list.files(folder_name),
+                           file_path = list.files(folder_name, full.names = T),
+                           stringsAsFactors = F)
+
+email_attachments &lt;- purrr::map2(output_files$file_path,
+                                 output_files$filename,
+                                 mime_part)
+
+sendmail(from = email_from,
+         to = email_to,
+         bcc = email_bcc,
+         subject = email_subject,
+         msg = c(email_body, email_attachments),
+         control = list(smtpServer = &quot;&quot;))</code></pre>
+</div>
+<div id="what-i-learned" class="section level2">
+<h2>What I Learned</h2>
+<p>Working though this problem really gave me some practice using lists. Lists are one of my R weaknesses. I don’t feel like I’ve fully internalized when to use them and how to use them effectively. Just learning to combine them with <code>c()</code> feels like a big win for me.</p>
+<p>Questions, critiques, and feedback are welcome in the comments section below. My thanks in advance to anyone that takes the time to leave one.</p>
 </div>
