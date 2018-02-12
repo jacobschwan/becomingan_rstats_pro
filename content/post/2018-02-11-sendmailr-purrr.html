@@ -1,0 +1,46 @@
+---
+title: Emailing Multiple Files with SendmailR and Purrr
+author: Jacob Schwan
+date: '2018-02-11'
+slug: sendmailr-purrr
+categories: ["R"]
+tags: ["sendmailr","purrr"]
+banner: ""
+draft: true
+---
+
+
+
+<p>I use R in my day job to generate and send out regular reports. The <a href="">sendmailR</a> package has been great to automatically email an output file. However, it becomes increasingly annoying to attach multiple files to an email. Each file is defined as a separate <code>mime_part()</code> object with a file name and path, then added to a list with</p>
+<p>Or, at least it was, before I started using the <code>purrr</code> package.</p>
+<!--more-->
+<div id="tldr" class="section level2">
+<h2>TL;DR</h2>
+<p>Here’s the code template I use to send an email will all of the files in a specific folder.</p>
+<pre class="r"><code>library(sendmailR)
+folder_name &lt;- &quot;&quot;
+email_from &lt;- &quot;&lt;&gt;&quot;
+email_to &lt;- c(&quot;&lt;&gt;&quot;, &quot;&lt;&gt;&quot;)
+email_bcc &lt;- &quot;&lt;&gt;&quot;
+email_subject &lt;- &quot;&quot;
+email_body &lt;- &quot;&quot;
+
+output_files &lt;- data.frame(filename = list.files(folder_name),
+                           file_path = list.files(folder_name, full.names = T),
+                           stringsAsFactors = F)
+
+email_attachments &lt;- purrr::map2(output_files$file_path,
+                                 output_files$filename,
+                                 mime_part)
+
+sendmail(from = email_from,
+         to = email_to,
+         bcc = email_bcc,
+         subject = email_subject,
+         msg = c(email_body, email_attachments),
+         control = list(smtpServer = &quot;&quot;))</code></pre>
+</div>
+<div id="motivation-and-explanation" class="section level2">
+<h2>Motivation and Explanation</h2>
+<p>The <code>mime_part()</code> funtion is used create an email attachment object, which is then included</p>
+</div>

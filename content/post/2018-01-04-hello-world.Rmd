@@ -6,6 +6,7 @@ slug: hello-world
 categories: ["R", "Maps"]
 tags: ["ggplot2", "countrycode"]
 banner: "banners/hello_world.png"
+images: ["banners/hello_world.png"]
 ---
 
 Hello world! I'm starting off 2018 by finally getting a data science blog up and running! 
